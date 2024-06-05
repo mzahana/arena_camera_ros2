@@ -16,16 +16,9 @@ void ArenaCameraNode::parse_parameters_()
   std::string nextParameterToDeclare = "";
   try {
     nextParameterToDeclare = "serial";
-    if (this->has_parameter("serial")) {
-        int serial_integer;
-        this->get_parameter<int>("serial", serial_integer);
-        serial_ = std::to_string(serial_integer);
-        is_passed_serial_ = true;
-} else {
-    serial_ = ""; // Set it to an empty string to indicate it's not passed.
-    is_passed_serial_ = false;
-}
-    
+    serial_ = this->declare_parameter<std::string>("serial", "");
+    is_passed_serial_ = serial_ != "";
+
     nextParameterToDeclare = "pixelformat";
     pixelformat_ros_ = this->declare_parameter("pixelformat", "");
     is_passed_pixelformat_ros_ = pixelformat_ros_ != "";
@@ -37,6 +30,16 @@ void ArenaCameraNode::parse_parameters_()
     nextParameterToDeclare = "height";
     height_ = this->declare_parameter("height", 0);
     is_passed_height = height_ > 0;
+
+    // Added by Mohamed Abdelkader
+    nextParameterToDeclare = "binningx";
+    binningx_ = this->declare_parameter("binningx", 1);
+    is_passed_binningx = binningx_ > 0;
+
+
+    nextParameterToDeclare = "binningy";
+    binningx_ = this->declare_parameter("binningy", 1);
+    is_passed_binningy = binningy_ > 0;
 
     nextParameterToDeclare = "gain";
     gain_ = this->declare_parameter("gain", -1.0);
@@ -243,8 +246,8 @@ void ArenaCameraNode::publish_images_()
 
       m_pub_->publish(std::move(p_image_msg));
 
-      log_info(std::string("image ") + std::to_string(pImage->GetFrameId()) +
-               " published to " + topic_);
+      // log_info(std::string("image ") + std::to_string(pImage->GetFrameId()) +
+      //          " published to " + topic_);
       this->m_pDevice->RequeueBuffer(pImage);
 
     } catch (std::exception& e) {
@@ -420,15 +423,12 @@ Arena::IDevice* ArenaCameraNode::create_device_ros_()
 void ArenaCameraNode::set_nodes_()
 {
   set_nodes_load_default_profile_();
+  set_nodes_binning_();
   set_nodes_roi_();
   set_nodes_gain_();
   set_nodes_pixelformat_();
   set_nodes_exposure_();
   set_nodes_trigger_mode_();
-  // configure Auto Negotiate Packet Size and Packet Resend
-  Arena::SetNodeValue<bool>(m_pDevice->GetTLStreamNodeMap(), "StreamAutoNegotiatePacketSize", True);
-  Arena::SetNodeValue<bool>(m_pDevice->GetTLStreamNodeMap(), "StreamPacketResendEnable", True);
-
   //set_nodes_test_pattern_image_();
 }
 
@@ -441,6 +441,44 @@ void ArenaCameraNode::set_nodes_load_default_profile_()
   // execute the profile
   Arena::ExecuteNode(nodemap, "UserSetLoad");
   log_info("\tdefault profile is loaded");
+}
+
+// Added by Mohamed Abdelkader
+void ArenaCameraNode::set_nodes_binning_()
+{
+  auto nodemap = m_pDevice->GetNodeMap();
+
+  // binning X -------------------------------------------------
+  try {
+    if (is_passed_binningx) {
+      Arena::SetNodeValue<int64_t>(nodemap, "BinningHorizontal", binningx_);
+    } else {
+      binningx_ = Arena::GetNodeValue<int64_t>(nodemap, "BinningHorizontal");
+    }
+  }
+  catch (GenICam::GenericException& e) {
+    auto x = std::string("Error in setting BinningHorizontal");
+      x.append(e.what());
+      throw std::invalid_argument(x);
+  }
+
+  // binning Y ------------------------------------------------
+  try{
+    if (is_passed_binningy) {
+      Arena::SetNodeValue<int64_t>(nodemap, "BinningVertical", binningy_);
+    } else {
+      binningy_ = Arena::GetNodeValue<int64_t>(nodemap, "BinningVertical");
+    }
+  }
+  catch (GenICam::GenericException& e) {
+    auto x = std::string("Error in setting BinningVertical");
+      x.append(e.what());
+      throw std::invalid_argument(x);
+  }
+
+  // TODO only if it was passed by ros arg
+  log_info(std::string("\tBinning set to ") + std::to_string(binningx_) + " in X" +
+           std::to_string(binningy_) + " in Y");
 }
 
 void ArenaCameraNode::set_nodes_roi_()
