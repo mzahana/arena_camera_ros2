@@ -63,6 +63,13 @@ class ArenaCameraNode : public rclcpp::Node
   size_t height_;
   bool is_passed_height;
 
+  // Added by Mohamed Abdelkader
+  size_t binningx_;
+  bool is_passed_binningx;
+
+  size_t binningy_;
+  bool is_passed_binningy;
+
   double gain_;
   bool is_passed_gain_;
 
@@ -95,6 +102,7 @@ class ArenaCameraNode : public rclcpp::Node
   Arena::IDevice* create_device_ros_();
   void set_nodes_();
   void set_nodes_load_default_profile_();
+  void set_nodes_binning_();
   void set_nodes_roi_();
   void set_nodes_gain_();
   void set_nodes_pixelformat_();
